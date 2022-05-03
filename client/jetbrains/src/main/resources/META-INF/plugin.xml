@@ -13,6 +13,10 @@
     <projectService id="sourcegraph.JCEFService" serviceImplementation="com.sourcegraph.service.JCEFService"/>
   </extensions>
 
+  <applicationListeners>
+    <listener class="com.sourcegraph.listener.ThemeChangeListener" topic="com.intellij.ide.ui.LafManagerListener" />
+  </applicationListeners>
+
   <actions>
     <action id="sourcegraph.openFile" class="com.sourcegraph.action.OpenFile" text="Open File" description="Open selection in Sourcegraph">
       <keyboard-shortcut first-keystroke="alt shift a" keymap="$default"/>
