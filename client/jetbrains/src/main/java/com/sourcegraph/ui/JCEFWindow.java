@@ -29,7 +29,12 @@ public class JCEFWindow {
             return;
         }
 
-        this.browser = new JBCefBrowser("http://sourcegraph/html/index.html") ;
+        this.browser = JBCefBrowser
+                .createBuilder()
+                .setOffScreenRendering(true)
+                .setUrl("http://sourcegraph/html/index.html")
+                .setCreateImmediately(true)
+                .createBrowser() ;
         this.cefBrowser= browser.getCefBrowser();
 
         CefApp
@@ -40,11 +45,9 @@ public class JCEFWindow {
                 new SchemeHandlerFactory()
             );
 
-        panel.add(this.browser.getComponent(),BorderLayout.CENTER);
-
-
         String backgroundColor = "#" + Integer.toHexString(UIUtil.getPanelBackground().getRGB()).substring(2);
         this.browser.setPageBackgroundColor(backgroundColor);
+        panel.add(this.browser.getComponent(),BorderLayout.CENTER);
 
         Disposer.register(project, this.browser);
     }
