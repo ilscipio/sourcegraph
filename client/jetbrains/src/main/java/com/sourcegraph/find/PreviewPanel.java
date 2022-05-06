@@ -1,22 +1,36 @@
 package com.sourcegraph.find;
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.*;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.ui.components.JBPanelWithEmptyText;
+import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.content.Content;
+import com.intellij.ui.content.ContentFactory;
+import com.intellij.ui.content.ContentManager;
+import com.intellij.xdebugger.XDebuggerManager;
+import com.intellij.xdebugger.XDebuggerUtil;
+import com.intellij.xdebugger.breakpoints.XBreakpointManager;
+import com.intellij.xdebugger.breakpoints.XBreakpointType;
+import com.intellij.xdebugger.breakpoints.XLineBreakpoint;
 import org.jetbrains.annotations.NotNull;
 
+
+import javax.swing.*;
 import java.awt.*;
 
 public class PreviewPanel extends JBPanelWithEmptyText {
     private final Project project;
-    private Editor editor;
+    private JComponent editorComponent ;
     private VirtualFile virtualFile;
     private String fileName;
     private String fileContent;
@@ -29,39 +43,50 @@ public class PreviewPanel extends JBPanelWithEmptyText {
     }
 
     public void setContent(@NotNull String fileName, @NotNull String fileContent) {
-        if (editor == null || this.fileName.equals(fileName) || this.fileContent.equals(fileContent)) {
+        if (editorComponent == null || this.fileName.equals(fileName) || this.fileContent.equals(fileContent)) {
             this.fileName = fileName;
             this.fileContent = fileContent;
 
-            if (editor != null) {
-                this.remove(editor.getComponent());
-            }
-            EditorFactory editorFactory = EditorFactory.getInstance();
-            virtualFile = new LightVirtualFile(fileName, fileContent);
-            Document document = editorFactory.createDocument(fileContent);
-            editor = editorFactory.createEditor(document, project, virtualFile, true, EditorKind.MAIN_EDITOR);
+            ApplicationManager.getApplication().invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    if (editorComponent != null) {
+                        remove(editorComponent);
+                    }
 
-            EditorSettings settings = editor.getSettings();
-            settings.setLineMarkerAreaShown(true);
-            settings.setFoldingOutlineShown(false);
-            settings.setAdditionalColumnsCount(0);
-            settings.setAdditionalLinesCount(0);
-            settings.setAnimatedScrolling(false);
-            settings.setAutoCodeFoldingEnabled(false);
+                    EditorFactory editorFactory = EditorFactory.getInstance();
+                    virtualFile = new LightVirtualFile(fileName, fileContent);
+                    Document document = editorFactory.createDocument(fileContent);
+                    document.setReadOnly(true);
 
-            add(editor.getComponent(), BorderLayout.CENTER);
+
+                    Editor editor = editorFactory.createEditor(document, project, virtualFile, true, EditorKind.MAIN_EDITOR);
+                    EditorSettings settings = editor.getSettings();
+                    settings.setLineMarkerAreaShown(true);
+                    settings.setFoldingOutlineShown(false);
+                    settings.setAdditionalColumnsCount(0);
+                    settings.setAdditionalLinesCount(0);
+                    settings.setAnimatedScrolling(false);
+                    settings.setAutoCodeFoldingEnabled(false);
+
+                    editorComponent = editor.getComponent();
+                    add(editorComponent, BorderLayout.CENTER);
+                    invalidate();
+                    validate();
+                }
+            });
         }
 
         //HighlightManager highlightManager = HighlightManager.getInstance(project);
         //highlightManager.addOccurrenceHighlight(editor, 23, 41, EditorColors.SEARCH_RESULT_ATTRIBUTES, 0, null);
 
-        invalidate(); // TODO: Is this needed? What does it do? Maybe use revalidate()? If needed then document this.
-        validate();
+        //invalidate(); // TODO: Is this needed? What does it do? Maybe use revalidate()? If needed then document this.
+        //validate();
     }
 
     public void clearContent() {
-        if (editor != null) {
-            this.remove(editor.getComponent());
+        if (editorComponent != null) {
+            this.remove(editorComponent);
         }
     }
 
