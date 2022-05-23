@@ -7,12 +7,14 @@ import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 
 public class OpenSearchAction extends AnAction implements DumbAware {
+
+
     @Override
     public void actionPerformed(@NotNull AnActionEvent event) {
         Project project = event.getProject();
         if (project != null) {
-            JCEFService service = project.getService(JCEFService.class);
-            service.getSourcegraphWindow().showPopup();
+            SearchWindowService service = project.getService(SearchWindowService.class);
+            service.getSearchWindow().showPopup();
         }
     }
 }

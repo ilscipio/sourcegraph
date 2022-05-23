@@ -4,12 +4,13 @@ import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
 import com.intellij.openapi.project.Project;
+import com.jetbrains.cef.JCefAppConfig;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @State(
-  name = "Config",
-  storages = {@Storage("sourcegraph.xml")})
+        name = "Config",
+        storages = {@Storage("sourcegraph.xml")})
 public
 class SourcegraphConfig implements PersistentStateComponent<SourcegraphConfig> {
 
