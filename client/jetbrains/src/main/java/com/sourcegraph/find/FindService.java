@@ -6,10 +6,15 @@ import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.project.ProjectManagerListener;
+import com.intellij.openapi.ui.DialogBuilder;
+import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.popup.ActiveIcon;
 import com.intellij.openapi.ui.popup.ComponentPopupBuilder;
 import com.intellij.openapi.ui.popup.JBPopup;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.wm.ex.WindowManagerEx;
 import com.intellij.ui.popup.AbstractPopup;
 import com.intellij.util.ui.UIUtil;
@@ -18,10 +23,12 @@ import org.cef.browser.CefBrowser;
 import org.cef.handler.CefKeyboardHandler;
 import org.cef.misc.BoolRef;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import javax.swing.*;
+import javax.swing.border.Border;
 import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
 
 import static java.awt.event.InputEvent.ALT_DOWN_MASK;
 import static java.awt.event.WindowEvent.WINDOW_GAINED_FOCUS;
@@ -29,7 +36,8 @@ import static java.awt.event.WindowEvent.WINDOW_GAINED_FOCUS;
 public class FindService implements Disposable {
     private final Project project;
     private final FindPopupPanel mainPanel;
-    private JBPopup popup;
+    private DialogWrapper popup;
+    private ActionListener myOkActionListener;
     private static final Logger logger = Logger.getInstance(FindService.class);
 
     public FindService(@NotNull Project project) {
@@ -41,11 +49,9 @@ public class FindService implements Disposable {
 
     synchronized public void showPopup() {
         if (popup == null || popup.isDisposed()) {
-            popup = createPopup();
-            popup.showCenteredInCurrentWindow(project);
-            registerOutsideClickListener();
+            createPopup();
         } else {
-            popup.setUiVisible(true);
+            popup.getWindow().setVisible(true);
         }
 
         // If the popup is already shown, hitting alt + a gain should behave the same as the native find in files
@@ -56,13 +62,13 @@ public class FindService implements Disposable {
     }
 
     public void hidePopup() {
-        popup.setUiVisible(false);
+        popup.getWindow().setVisible(false);
         hideMaterialUiOverlay();
     }
 
     @NotNull
-    private JBPopup createPopup() {
-        ComponentPopupBuilder builder = JBPopupFactory.getInstance().createComponentPopupBuilder(mainPanel, mainPanel)
+    private void createPopup() {
+        /*ComponentPopupBuilder builder = JBPopupFactory.getInstance().createComponentPopupBuilder(mainPanel, mainPanel)
             .setTitle("Sourcegraph")
             .setTitleIcon(new ActiveIcon(Icons.Logo))
             .setProject(project)
@@ -79,21 +85,35 @@ public class FindService implements Disposable {
             .setBelongsToGlobalPopupStack(true)
             .setMinSize(new Dimension(750, 420))
             .setNormalWindowLevel(true);
+        */
 
-        // For some reason, adding a cancelCallback will prevent the cancel event to fire when using the escape key. To
-        // work around this, we add a manual listener to both the global key handler (since the editor component seems
-        // to work around the default swing event hands long) and the browser panel which seems to handle events in a
-        // separate queue.
-        registerGlobalKeyListeners();
-        registerJBCefClientKeyListeners();
 
-        return builder.createPopup();
+
+        if (popup != null && popup.isVisible()) {
+            return;
+        }
+        if (popup != null && !popup.isDisposed()) {
+            popup.doCancelAction();
+        }
+        if (popup == null || popup.isDisposed()) {
+            popup = new FindPopupDialog(project,mainPanel);
+
+            // For some reason, adding a cancelCallback will prevent the cancel event to fire when using the escape key. To
+            // work around this, we add a manual listener to both the global key handler (since the editor component seems
+            // to work around the default swing event hands long) and the browser panel which seems to handle events in a
+            // separate queue.
+            registerGlobalKeyListeners();
+            registerJBCefClientKeyListeners();
+            popup.show();
+
+        }
+
     }
 
     private void registerGlobalKeyListeners() {
         KeyboardFocusManager.getCurrentKeyboardFocusManager()
             .addKeyEventDispatcher(e -> {
-                if (e.getID() != KeyEvent.KEY_PRESSED || popup.isDisposed() || !popup.isVisible() || !popup.isFocused()) {
+                if (e.getID() != KeyEvent.KEY_PRESSED || popup != null  && (popup.isDisposed() || !popup.isVisible() )) {
                     return false;
                 }
 
@@ -143,55 +163,11 @@ public class FindService implements Disposable {
         return false;
     }
 
-    private void registerOutsideClickListener() {
-        Window projectParentWindow = getParentWindow(null);
-
-        Toolkit.getDefaultToolkit().addAWTEventListener(event -> {
-            if (event instanceof WindowEvent) {
-                WindowEvent windowEvent = (WindowEvent) event;
-
-                // We only care for focus events
-                if (windowEvent.getID() != WINDOW_GAINED_FOCUS) {
-                    return;
-                }
-
-                // Detect if we're focusing the Sourcegraph popup
-                if (popup instanceof AbstractPopup) {
-                    Window sourcegraphPopupWindow = ((AbstractPopup) popup).getPopupWindow();
-
-                    if (windowEvent.getWindow().equals(sourcegraphPopupWindow)) {
-                        return;
-                    }
-                }
-
-                // Detect if the newly focused window is a parent of the project root window
-                Window currentProjectParentWindow = getParentWindow(windowEvent.getComponent());
-                if (currentProjectParentWindow.equals(projectParentWindow)) {
-                    hidePopup();
-                }
-            }
-        }, AWTEvent.WINDOW_EVENT_MASK);
-    }
-
-    // https://sourcegraph.com/github.com/JetBrains/intellij-community@27fee7320a01c58309a742341dd61deae57c9005/-/blob/platform/platform-impl/src/com/intellij/ui/popup/AbstractPopup.java?L475-493
-    private Window getParentWindow(Component component) {
-        Window window = null;
-        Component parent = UIUtil.findUltimateParent(component == null ? WindowManagerEx.getInstanceEx().getFocusedComponent(project) : component);
-        if (parent instanceof Window) {
-            window = (Window) parent;
-        }
-        if (window == null) {
-            window = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusedWindow();
-        }
-        return window;
-    }
-
     @Override
     public void dispose() {
-        if (popup != null) {
-            popup.dispose();
+        if(popup!=null){
+            popup.getWindow().dispose();
         }
-
         mainPanel.dispose();
     }
 
