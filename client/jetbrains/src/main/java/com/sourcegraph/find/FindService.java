@@ -36,7 +36,7 @@ import static java.awt.event.WindowEvent.WINDOW_GAINED_FOCUS;
 public class FindService implements Disposable {
     private final Project project;
     private final FindPopupPanel mainPanel;
-    private DialogWrapper popup;
+    private FindPopupDialog popup;
     private ActionListener myOkActionListener;
     private static final Logger logger = Logger.getInstance(FindService.class);
 
@@ -51,7 +51,7 @@ public class FindService implements Disposable {
         if (popup == null || popup.isDisposed()) {
             createPopup();
         } else {
-            popup.getWindow().setVisible(true);
+            hidePopup();
         }
 
         // If the popup is already shown, hitting alt + a gain should behave the same as the native find in files
@@ -62,7 +62,7 @@ public class FindService implements Disposable {
     }
 
     public void hidePopup() {
-        popup.getWindow().setVisible(false);
+        popup.hide();
         hideMaterialUiOverlay();
     }
 
@@ -104,7 +104,6 @@ public class FindService implements Disposable {
             // separate queue.
             registerGlobalKeyListeners();
             registerJBCefClientKeyListeners();
-            popup.show();
 
         }
 
