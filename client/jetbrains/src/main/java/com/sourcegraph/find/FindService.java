@@ -51,7 +51,7 @@ public class FindService implements Disposable {
         if (popup == null || popup.isDisposed()) {
             createPopup();
         } else {
-            hidePopup();
+            popup.show();
         }
 
         // If the popup is already shown, hitting alt + a gain should behave the same as the native find in files

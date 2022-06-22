@@ -61,7 +61,6 @@ public class FindPopupDialog extends DialogWrapper {
         setCrossClosesWindow(false);
         setUndecorated(true);
         getWindow().setMinimumSize(new Dimension(750, 420));
-        getRootPane().setPreferredSize(new Dimension(750, 420));
         this.myMainPanel = myMainPanel;
         myMouseEverEntered = false;
         myMouseOutCanceller = new Canceller();
@@ -106,7 +105,7 @@ public class FindPopupDialog extends DialogWrapper {
     }
 
     public void hide() {
-        getWindow().setVisible(false);
+        getPeer().getWindow().setVisible(false);
         myMouseEverEntered = false;
     }
 
@@ -130,14 +129,13 @@ public class FindPopupDialog extends DialogWrapper {
                         }
 
                     break;
-                case MOUSE_ENTERED:
-                    if (mouseWithinPopup(event)) {
+                case MOUSE_EXITED:
+                    if (getPeer().getWindow().isVisible() && mouseWithinPopup(event)) {
                         myMouseEverEntered = true;
                     }
                     break;
-                case MOUSE_MOVED:
                 case MOUSE_PRESSED:
-                    if (myMouseEverEntered)
+                    if (getPeer().getWindow().isVisible() && myMouseEverEntered)
                         if(!mouseWithinPopup(event)) {
                         hide();
                     }
@@ -149,13 +147,11 @@ public class FindPopupDialog extends DialogWrapper {
     @Override
     public void show() {
         super.show();
-
-
     }
 
     private boolean mouseWithinPopup(@NotNull AWTEvent event) {
         final MouseEvent mouse = (MouseEvent)event;
-        Rectangle bounds = getBoundsOnScreen(getContentPanel());
+        Rectangle bounds = getBoundsOnScreen(getWindow());
         return bounds != null && bounds.contains(mouse.getLocationOnScreen());
     }
 
